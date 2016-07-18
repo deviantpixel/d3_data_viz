@@ -1,0 +1,16 @@
+d3:
+  version: 3.x
+  js:
+    js/d3.min.js: {}
+  dependencies:
+    - core/jquery
+d3vis_src:
+  version: 1.x
+  js:
+    js/d3vis_src.js: {}
+  dependencies:
+    - core/jquery
+    - core/jquery.once
+    - core/drupal
+    - core/drupalSettings
+    - d3vis/d3

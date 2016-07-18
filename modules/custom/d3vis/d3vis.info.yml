@@ -1,0 +1,5 @@
+name: D3 Data Visualization
+type: module
+description: Provides D3 rendering of content.
+core: 8.x
+package: d3

@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * @file
+ * Contains d3vis.module..
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+function d3vis_theme($existing, $type, $theme, $path) {
+  return array(
+    'd3vis' => array(
+      'variables' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_help().
+ */
+function d3vis_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the d3vis module.
+    case 'help.page.d3vis':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Provides D3 rendering of content.') . '</p>';
+      return $output;
+
+    default:
+  }
+}
