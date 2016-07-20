@@ -122,6 +122,60 @@
 						return thisNumber;
 					}
 				}
+
+				/* Start map section */
+
+				//Create a sized SVG surface within d3vis-container:
+		    var mapsvg = d3.select("#d3map-container")
+		        .append("svg")
+		        .attr("width", width)
+		        .attr("height", height);
+
+		    // Append a group element to place all country shapes in
+		    var g = mapsvg.append("g");
+
+				// Set a map projection as well as other map configuration
+				var projection = d3.geo.mercator()
+				  .scale( 400 )
+				  .center( [20, 0] )
+				  .translate( [width/2,height/2] );
+
+				// Set the projection to be used on all GeoJson paths
+				var geoPath = d3.geo.path()
+				    .projection( projection );
+
+		    // Load the GeoJson shape data of countries in Africa
+		    d3.json("/modules/custom/d3vis/js/africa.geo.json", function(error, mapdata) {
+		    	if (error) throw error; // always great to check for errors	
+		    		// Load the countries data again to use this data as well
+		    		d3.json("/countries-api", function(error, countryData) {
+				    	if (error) throw error; // always great to check for errors
+
+							// Select all path to begin creating path elements
+							g.selectAll("path")
+								// We will be creating a path element for every data item in the mapdata array
+							  .data( mapdata.features ).enter()
+							  // Append the path
+							  .append("path")
+							  	// We fill the color with the default gray color unless it has a country name 
+							  	// that appears in our countryData json array. If it does we color it blue.
+								  .attr("fill", function(d, i) {
+								  	// Countries will keep this default gray color if not found
+								  	var fillColor = "#ccc";
+								  	jQuery.each(countryData, function() {
+										  if (this.title == d.properties.name_long) {
+										  	// Found this country in our countrydata list. make it blue
+										  	fillColor = "rgb(158, 202, 225)";
+										  }
+										});
+										return fillColor; // Return the resulting background color
+								  })
+								  .attr("d", geoPath ) // Add the GeoJson path data to the d attribute
+								  .attr("stroke-width", 1)
+								  .attr("stroke", "#fff");
+			    	});
+		    	});
+				/* End map section */
     	});
     }
   };
