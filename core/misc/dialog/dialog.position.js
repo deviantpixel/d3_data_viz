@@ -56,7 +56,9 @@
       }
     }
     // Offset the dialog center to be at the center of Drupal.displace.offsets.
-    adjustedOptions = resetPosition(adjustedOptions);
+    if (!event.data.settings.modal) {
+      adjustedOptions = resetPosition(adjustedOptions);
+    }
     event.data.$element
       .dialog('option', adjustedOptions)
       .trigger('dialogContentResize');
@@ -98,11 +100,12 @@
         $(window)
           .on('resize.dialogResize scroll.dialogResize', eventData, autoResize)
           .trigger('resize.dialogResize');
-        $(document).on('drupalViewportOffsetChange', eventData, autoResize);
+        $(document).on('drupalViewportOffsetChange.dialogResize', eventData, autoResize);
       }
     },
     'dialog:beforeclose': function (event, dialog, $element) {
       $(window).off('.dialogResize');
+      $(document).off('.dialogResize');
     }
   });
 

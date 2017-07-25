@@ -75,7 +75,7 @@ class UpdateRegistry {
    *   A list of enabled modules.
    * @param \Drupal\Core\KeyValueStore\KeyValueStoreInterface $key_value
    *   The key value store.
-   * @param bool|NULL $include_tests
+   * @param bool|null $include_tests
    *   (optional) A flag whether to include tests in the scanning of modules.
    */
   public function __construct($root, $site_path, array $enabled_modules, KeyValueStoreInterface $key_value, $include_tests = NULL) {
@@ -187,7 +187,7 @@ class UpdateRegistry {
       list($module, $update) = explode("_{$this->updateType}_", $function);
       // The description for an update comes from its Doxygen.
       $func = new \ReflectionFunction($function);
-      $description = trim(str_replace(array("\n", '*', '/'), '', $func->getDocComment()), ' ');
+      $description = trim(str_replace(["\n", '*', '/'], '', $func->getDocComment()), ' ');
       $ret[$module]['pending'][$update] = $description;
       if (!isset($ret[$module]['start'])) {
         $ret[$module]['start'] = $update;

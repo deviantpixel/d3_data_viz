@@ -114,7 +114,9 @@
   Drupal.views.ajaxView.prototype.attachExposedFormAjax = function () {
     var that = this;
     this.exposedFormAjax = [];
-    $('input[type=submit], input[type=image]', this.$exposed_form).each(function (index) {
+    // Exclude the reset buttons so no AJAX behaviours are bound. Many things
+    // break during the form reset phase if using AJAX.
+    $('input[type=submit], input[type=image]', this.$exposed_form).not('[data-drupal-selector=edit-reset]').each(function (index) {
       var self_settings = $.extend({}, that.element_settings, {
         base: $(this).attr('id'),
         element: this
@@ -126,13 +128,11 @@
   /**
    * @return {bool}
    *   If there is at least one parent with a view class return false.
-   *
-   * @todo remove .size() replace with .length.
    */
   Drupal.views.ajaxView.prototype.filterNestedViews = function () {
     // If there is at least one parent with a view class, this view
     // is nested (e.g., an attachment). Bail.
-    return !this.$view.parents('.view').size();
+    return !this.$view.parents('.view').length;
   };
 
   /**

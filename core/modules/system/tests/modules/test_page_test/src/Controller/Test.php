@@ -15,7 +15,7 @@ class Test {
    *   A render array as expected by drupal_render()
    */
   public function renderTitle() {
-    $build = array();
+    $build = [];
     $build['#markup'] = 'Hello Drupal';
     $build['#title'] = 'Foo';
 
@@ -29,7 +29,7 @@ class Test {
    *   A render array as expected by drupal_render().
    */
   public function staticTitle() {
-    $build = array();
+    $build = [];
     $build['#markup'] = 'Hello Drupal';
 
     return $build;
@@ -66,9 +66,9 @@ class Test {
    *   A render array as expected by drupal_render()
    */
   public function renderPage() {
-    return array(
+    return [
       '#markup' => 'Content',
-    );
+    ];
   }
 
   /**
@@ -86,6 +86,26 @@ class Test {
     return [
       '#markup' => 'Content',
     ];
+  }
+
+  /**
+   * Renders a page with encoded markup.
+   *
+   * @return array
+   *   A render array as expected by drupal_render()
+   */
+  public function renderEncodedMarkup() {
+    return ['#plain_text' => 'Bad html <script>alert(123);</script>'];
+  }
+
+  /**
+   * Renders a page with pipe character in link test.
+   *
+   * @return array
+   *   A render array as expected by drupal_render()
+   */
+  public function renderPipeInLink() {
+    return ['#markup' => '<a href="http://example.com">foo|bar|baz</a>'];
   }
 
 }

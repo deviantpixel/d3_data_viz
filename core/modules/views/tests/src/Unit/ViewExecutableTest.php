@@ -22,6 +22,16 @@ use Symfony\Component\Routing\Route;
 class ViewExecutableTest extends UnitTestCase {
 
   /**
+   * Indicates that a display is enabled.
+   */
+  const DISPLAY_ENABLED = TRUE;
+
+  /**
+   * Indicates that a display is disabled.
+   */
+  const DISPLAY_DISABLED = FALSE;
+
+  /**
    * A mocked display collection.
    *
    * @var \Drupal\views\DisplayPluginCollection|\PHPUnit_Framework_MockObject_MockObject
@@ -172,8 +182,6 @@ class ViewExecutableTest extends UnitTestCase {
   }
 
   /**
-   * @expectedException \InvalidArgumentException
-   *
    * @covers ::getUrl
    */
   public function testGetUrlWithoutRouterDisplay() {
@@ -183,6 +191,7 @@ class ViewExecutableTest extends UnitTestCase {
       ->willReturn($this->displayHandler);
     $this->executable->display_handler = $this->displayHandler;
 
+    $this->setExpectedException(\InvalidArgumentException::class);
     $this->executable->getUrl();
   }
 
@@ -466,7 +475,7 @@ class ViewExecutableTest extends UnitTestCase {
    *   Returns the view executable and default display.
    */
   protected function setupBaseViewAndDisplay() {
-    $config = array(
+    $config = [
       'id' => 'test_view',
       'tag' => 'OnE, TWO, and three',
       'display' => [
@@ -476,7 +485,7 @@ class ViewExecutableTest extends UnitTestCase {
           'display_title' => 'Default',
         ],
       ],
-    );
+    ];
 
     $storage = new View($config, 'view');
     $view = new ViewExecutable($storage, $this->user, $this->viewsData, $this->routeProvider);
@@ -506,7 +515,7 @@ class ViewExecutableTest extends UnitTestCase {
       $view->$type = [];
     }
 
-    return array($view, $display);
+    return [$view, $display];
   }
 
   /**
@@ -630,6 +639,54 @@ class ViewExecutableTest extends UnitTestCase {
     $query->expects($this->once())->method('execute');
 
     $view->execute();
+  }
+
+  /**
+   * Tests the return values for the execute() method.
+   *
+   * @param bool $display_enabled
+   *   Whether the display to test should be enabled.
+   * @param bool $expected_result
+   *   The expected result when calling execute().
+   *
+   * @covers ::execute
+   * @dataProvider providerExecuteReturn
+   */
+  public function testExecuteReturn($display_enabled, $expected_result) {
+    /** @var \Drupal\views\ViewExecutable|\PHPUnit_Framework_MockObject_MockObject $view */
+    /** @var \Drupal\views\Plugin\views\display\DisplayPluginBase|\PHPUnit_Framework_MockObject_MockObject $display */
+    list($view, $display) = $this->setupBaseViewAndDisplay();
+
+    $display->expects($this->any())
+      ->method('isEnabled')
+      ->willReturn($display_enabled);
+
+    // Pager needs to be set to avoid false test failures.
+    $view->pager = $this->getMockBuilder(NonePager::class)
+      ->disableOriginalConstructor()
+      ->getMock();
+
+    $query = $this->getMockBuilder(QueryPluginBase::class)
+      ->disableOriginalConstructor()
+      ->getMock();
+
+    $view->query = $query;
+    $view->built = TRUE;
+
+    $this->assertEquals($expected_result, $view->execute());
+  }
+
+  /**
+   * Provider for testExecuteReturn().
+   *
+   * @return array[]
+   *   An array of arrays containing the display state and expected value.
+   */
+  public function providerExecuteReturn() {
+    return [
+      'enabled' => [static::DISPLAY_ENABLED, TRUE],
+      'disabled' => [static::DISPLAY_DISABLED, FALSE],
+    ];
   }
 
 }

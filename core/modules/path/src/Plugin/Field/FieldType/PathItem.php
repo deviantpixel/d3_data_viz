@@ -28,7 +28,7 @@ class PathItem extends FieldItemBase {
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['alias'] = DataDefinition::create('string')
       ->setLabel(t('Path alias'));
-    $properties['pid'] = DataDefinition::create('string')
+    $properties['pid'] = DataDefinition::create('integer')
       ->setLabel(t('Path id'));
     return $properties;
   }
@@ -37,7 +37,7 @@ class PathItem extends FieldItemBase {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return array();
+    return [];
   }
 
   /**
@@ -62,7 +62,7 @@ class PathItem extends FieldItemBase {
     else {
       // Delete old alias if user erased it.
       if ($this->pid && !$this->alias) {
-        \Drupal::service('path.alias_storage')->delete(array('pid' => $this->pid));
+        \Drupal::service('path.alias_storage')->delete(['pid' => $this->pid]);
       }
       // Only save a non-empty alias.
       elseif ($this->alias) {
@@ -70,15 +70,6 @@ class PathItem extends FieldItemBase {
         \Drupal::service('path.alias_storage')->save('/' . $entity->urlInfo()->getInternalPath(), $this->alias, $this->getLangcode(), $this->pid);
       }
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function delete() {
-    // Delete all aliases associated with this entity.
-    $entity = $this->getEntity();
-    \Drupal::service('path.alias_storage')->delete(array('source' => '/' . $entity->urlInfo()->getInternalPath()));
   }
 
   /**

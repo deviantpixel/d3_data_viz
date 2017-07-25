@@ -5,12 +5,14 @@
  * This script runs Drupal tests from command line.
  */
 
+use Drupal\Component\FileSystem\FileSystem;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Timer;
 use Drupal\Component\Uuid\Php;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Site\Settings;
 use Drupal\Core\StreamWrapper\PublicStream;
+use Drupal\Core\Test\TestDatabase;
 use Drupal\Core\Test\TestRunnerKernel;
 use Drupal\simpletest\Form\SimpletestResultsForm;
 use Drupal\simpletest\TestBase;
@@ -33,6 +35,11 @@ const SIMPLETEST_SCRIPT_SQLITE_VARIABLE_LIMIT = 350;
 const SIMPLETEST_SCRIPT_EXIT_SUCCESS = 0;
 const SIMPLETEST_SCRIPT_EXIT_FAILURE = 1;
 const SIMPLETEST_SCRIPT_EXIT_EXCEPTION = 2;
+
+if (!class_exists('\PHPUnit_Framework_TestCase')) {
+  echo "\nrun-tests.sh requires the PHPUnit testing framework. Please use 'composer install --dev' to ensure that it is present.\n\n";
+  exit(SIMPLETEST_SCRIPT_EXIT_FAILURE);
+}
 
 // Set defaults and get overrides.
 list($args, $count) = simpletest_script_parse_args();
@@ -69,6 +76,7 @@ if ($args['list']) {
     $groups = simpletest_test_get_all($args['module']);
   }
   catch (Exception $e) {
+    error_log((string) $e);
     echo (string) $e;
     exit(SIMPLETEST_SCRIPT_EXIT_EXCEPTION);
   }
@@ -76,6 +84,36 @@ if ($args['list']) {
     echo $group . "\n";
     foreach ($tests as $class => $info) {
       echo " - $class\n";
+    }
+  }
+  exit(SIMPLETEST_SCRIPT_EXIT_SUCCESS);
+}
+
+// List-files and list-files-json provide a way for external tools such as the
+// testbot to prioritize running changed tests.
+// @see https://www.drupal.org/node/2569585
+if ($args['list-files'] || $args['list-files-json']) {
+  // List all files which could be run as tests.
+  $test_discovery = NULL;
+  try {
+    $test_discovery = \Drupal::service('test_discovery');
+  } catch (Exception $e) {
+    error_log((string) $e);
+    echo (string)$e;
+    exit(SIMPLETEST_SCRIPT_EXIT_EXCEPTION);
+  }
+  // TestDiscovery::findAllClassFiles() gives us a classmap similar to a
+  // Composer 'classmap' array.
+  $test_classes = $test_discovery->findAllClassFiles();
+  // JSON output is the easiest.
+  if ($args['list-files-json']) {
+    echo json_encode($test_classes);
+    exit(SIMPLETEST_SCRIPT_EXIT_SUCCESS);
+  }
+  // Output the list of files.
+  else {
+    foreach(array_values($test_classes) as $test_class) {
+      echo $test_class . "\n";
     }
   }
   exit(SIMPLETEST_SCRIPT_EXIT_SUCCESS);
@@ -118,6 +156,12 @@ $status = simpletest_script_execute_batch($tests_to_run);
 
 // Stop the timer.
 simpletest_script_reporter_timer_stop();
+
+// Ensure all test locks are released once finished. If tests are run with a
+// concurrency of 1 the each test will clean up its own lock. Test locks are
+// not released if using a higher concurrency to ensure each test method has
+// unique fixtures.
+TestDatabase::releaseAllTestLocks();
 
 // Display results before database is cleared.
 if ($args['browser']) {
@@ -163,6 +207,14 @@ All arguments are long options.
   --help      Print this page.
 
   --list      Display all available test groups.
+
+  --list-files
+              Display all discoverable test file paths.
+
+  --list-files-json
+              Display all discoverable test files as JSON. The array key will be
+              the test class name, and the value will be the file path of the
+              test.
 
   --clean     Cleans up database tables or directories from previous, failed,
               tests and then exits (no tests are run).
@@ -295,6 +347,8 @@ function simpletest_script_parse_args() {
     'script' => '',
     'help' => FALSE,
     'list' => FALSE,
+    'list-files' => FALSE,
+    'list-files-json' => FALSE,
     'clean' => FALSE,
     'url' => '',
     'sqlite' => NULL,
@@ -441,6 +495,16 @@ function simpletest_script_init() {
   $_SERVER['SCRIPT_FILENAME'] = $path . '/index.php';
   $_SERVER['PHP_SELF'] = $path . '/index.php';
   $_SERVER['HTTP_USER_AGENT'] = 'Drupal command line';
+
+  if ($args['concurrency'] > 1) {
+    $directory = FileSystem::getOsTemporaryDirectory();
+    $test_symlink = @symlink(__FILE__, $directory . '/test_symlink');
+    if (!$test_symlink) {
+      throw new \RuntimeException('In order to use a concurrency higher than 1 the test system needs to be able to create symlinks in ' . $directory);
+    }
+    unlink($directory . '/test_symlink');
+    putenv('RUN_TESTS_CONCURRENCY=' . $args['concurrency']);
+  }
 
   if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
     // Ensure that any and all environment variables are changed to https://.
@@ -647,6 +711,10 @@ function simpletest_script_execute_batch($test_classes) {
         elseif ($status['exitcode']) {
           $message = 'FATAL ' . $child['class'] . ': test runner returned a non-zero error code (' . $status['exitcode'] . ').';
           echo $message . "\n";
+          // @todo Return SIMPLETEST_SCRIPT_EXIT_EXCEPTION instead, when
+          // DrupalCI supports this.
+          // @see https://www.drupal.org/node/2780087
+          $total_status = max(SIMPLETEST_SCRIPT_EXIT_FAILURE, $total_status);
           // Insert a fail for xml results.
           TestBase::insertAssert($child['test_id'], $child['class'], FALSE, $message, 'run-tests.sh check');
           // Ensure that an error line is displayed for the class.
@@ -656,7 +724,8 @@ function simpletest_script_execute_batch($test_classes) {
           );
           if ($args['die-on-fail']) {
             list($db_prefix) = simpletest_last_test_get($child['test_id']);
-            $test_directory = 'sites/simpletest/' . substr($db_prefix, 10);
+            $test_db = new TestDatabase($db_prefix);
+            $test_directory = $test_db->getTestSitePath();
             echo 'Simpletest database and files kept and test exited immediately on fail so should be reproducible if you change settings.php to use the database prefix ' . $db_prefix . ' and config directories in ' . $test_directory . "\n";
             $args['keep-results'] = TRUE;
             // Exit repeat loop immediately.
@@ -832,7 +901,8 @@ function simpletest_script_cleanup($test_id, $test_class, $exitcode) {
 
   // Check whether a test site directory was setup already.
   // @see \Drupal\simpletest\TestBase::prepareEnvironment()
-  $test_directory = DRUPAL_ROOT . '/sites/simpletest/' . substr($db_prefix, 10);
+  $test_db = new TestDatabase($db_prefix);
+  $test_directory = DRUPAL_ROOT . '/' . $test_db->getTestSitePath();
   if (is_dir($test_directory)) {
     // Output the error_log.
     if (is_file($test_directory . '/error.log')) {
@@ -992,12 +1062,12 @@ function simpletest_script_get_test_list() {
         $content = file_get_contents($file);
         // Extract a potential namespace.
         $namespace = FALSE;
-        if (preg_match('@^namespace ([^ ;]+)@m', $content, $matches)) {
+        if (preg_match('@^\s*namespace ([^ ;]+)@m', $content, $matches)) {
           $namespace = $matches[1];
         }
         // Extract all class names.
         // Abstract classes are excluded on purpose.
-        preg_match_all('@^class ([^ ]+)@m', $content, $matches);
+        preg_match_all('@^\s*class ([^ ]+)@m', $content, $matches);
         if (!$namespace) {
           $test_list = array_merge($test_list, $matches[1]);
         }

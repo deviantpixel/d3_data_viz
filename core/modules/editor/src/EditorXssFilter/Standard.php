@@ -35,7 +35,7 @@ class Standard extends Xss implements EditorXssFilterInterface {
     //   directly.
     // <iframe> is considered safe because it only allows HTML content to be
     // embedded, hence ensuring the same origin policy always applies.
-    $dangerous_tags = array('script', 'style', 'link', 'embed', 'object');
+    $dangerous_tags = ['script', 'style', 'link', 'embed', 'object'];
 
     // Simply blacklisting these five dangerous tags would bring safety, but
     // also user frustration: what if a text format is configured to allow
@@ -120,7 +120,7 @@ class Standard extends Xss implements EditorXssFilterInterface {
   /**
    * Get all allowed tags from a restrictions data structure.
    *
-   * @param array|FALSE $restrictions
+   * @param array|false $restrictions
    *   Restrictions as returned by FilterInterface::getHTMLRestrictions().
    *
    * @return array
@@ -130,13 +130,13 @@ class Standard extends Xss implements EditorXssFilterInterface {
    */
   protected static function getAllowedTags($restrictions) {
     if ($restrictions === FALSE || !isset($restrictions['allowed'])) {
-      return array();
+      return [];
     }
 
     $allowed_tags = array_keys($restrictions['allowed']);
     // Exclude the wildcard tag, which is used to set attribute restrictions on
     // all tags simultaneously.
-    $allowed_tags = array_diff($allowed_tags, array('*'));
+    $allowed_tags = array_diff($allowed_tags, ['*']);
 
     return $allowed_tags;
   }
@@ -144,7 +144,7 @@ class Standard extends Xss implements EditorXssFilterInterface {
   /**
    * Get all forbidden tags from a restrictions data structure.
    *
-   * @param array|FALSE $restrictions
+   * @param array|false $restrictions
    *   Restrictions as returned by FilterInterface::getHTMLRestrictions().
    *
    * @return array
@@ -154,7 +154,7 @@ class Standard extends Xss implements EditorXssFilterInterface {
    */
   protected static function getForbiddenTags($restrictions) {
     if ($restrictions === FALSE || !isset($restrictions['forbidden_tags'])) {
-      return array();
+      return [];
     }
     else {
       return $restrictions['forbidden_tags'];

@@ -159,6 +159,35 @@ class ContainerAwareEventDispatcher implements EventDispatcherInterface {
   /**
    * {@inheritdoc}
    */
+  public function getListenerPriority($eventName, $listener) {
+    // Parts copied from \Symfony\Component\EventDispatcher, that's why you see
+    // a yoda condition here.
+    if (!isset($this->listeners[$eventName])) {
+      return;
+    }
+    foreach ($this->listeners[$eventName] as $priority => $listeners) {
+      if (FALSE !== ($key = array_search(['callable' => $listener], $listeners, TRUE))) {
+        return $priority;
+      }
+    }
+    // Resolve service definitions if the listener has not been found so far.
+    foreach ($this->listeners[$eventName] as $priority => &$definitions) {
+      foreach ($definitions as $key => &$definition) {
+        if (!isset($definition['callable'])) {
+          // Once the callable is retrieved we keep it for subsequent method
+          // invocations on this class.
+          $definition['callable'] = [$this->container->get($definition['service'][0]), $definition['service'][1]];
+          if ($definition['callable'] === $listener) {
+            return $priority;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function hasListeners($event_name = NULL) {
     return (bool) count($this->getListeners($event_name));
   }
@@ -201,14 +230,14 @@ class ContainerAwareEventDispatcher implements EventDispatcherInterface {
   public function addSubscriber(EventSubscriberInterface $subscriber) {
     foreach ($subscriber->getSubscribedEvents() as $event_name => $params) {
       if (is_string($params)) {
-        $this->addListener($event_name, array($subscriber, $params));
+        $this->addListener($event_name, [$subscriber, $params]);
       }
       elseif (is_string($params[0])) {
-        $this->addListener($event_name, array($subscriber, $params[0]), isset($params[1]) ? $params[1] : 0);
+        $this->addListener($event_name, [$subscriber, $params[0]], isset($params[1]) ? $params[1] : 0);
       }
       else {
         foreach ($params as $listener) {
-          $this->addListener($event_name, array($subscriber, $listener[0]), isset($listener[1]) ? $listener[1] : 0);
+          $this->addListener($event_name, [$subscriber, $listener[0]], isset($listener[1]) ? $listener[1] : 0);
         }
       }
     }
@@ -221,11 +250,11 @@ class ContainerAwareEventDispatcher implements EventDispatcherInterface {
     foreach ($subscriber->getSubscribedEvents() as $event_name => $params) {
       if (is_array($params) && is_array($params[0])) {
         foreach ($params as $listener) {
-          $this->removeListener($event_name, array($subscriber, $listener[0]));
+          $this->removeListener($event_name, [$subscriber, $listener[0]]);
         }
       }
       else {
-        $this->removeListener($event_name, array($subscriber, is_string($params) ? $params : $params[0]));
+        $this->removeListener($event_name, [$subscriber, is_string($params) ? $params : $params[0]]);
       }
     }
   }

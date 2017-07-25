@@ -9,6 +9,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\datetime\Plugin\Field\FieldType\DateTimeItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 
@@ -81,9 +82,9 @@ abstract class DateTimeFormatterBase extends FormatterBase implements ContainerF
    * {@inheritdoc}
    */
   public static function defaultSettings() {
-    return array(
+    return [
       'timezone_override' => '',
-    ) + parent::defaultSettings();
+    ] + parent::defaultSettings();
   }
 
   /**
@@ -92,13 +93,13 @@ abstract class DateTimeFormatterBase extends FormatterBase implements ContainerF
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $form = parent::settingsForm($form, $form_state);
 
-    $form['timezone_override'] = array(
+    $form['timezone_override'] = [
       '#type' => 'select',
       '#title' => $this->t('Time zone override'),
       '#description' => $this->t('The time zone selected here will always be used'),
       '#options' => system_time_zones(TRUE),
       '#default_value' => $this->getSetting('timezone_override'),
-    );
+    ];
 
     return $form;
   }
@@ -110,7 +111,7 @@ abstract class DateTimeFormatterBase extends FormatterBase implements ContainerF
     $summary = parent::settingsSummary();
 
     if ($override = $this->getSetting('timezone_override')) {
-      $summary[] = $this->t('Time zone: @timezone', array('@timezone' => $override));
+      $summary[] = $this->t('Time zone: @timezone', ['@timezone' => $override]);
     }
 
     return $summary;
@@ -140,7 +141,14 @@ abstract class DateTimeFormatterBase extends FormatterBase implements ContainerF
    *   A DrupalDateTime object.
    */
   protected function setTimeZone(DrupalDateTime $date) {
-    $date->setTimeZone(timezone_open(drupal_get_user_timezone()));
+    if ($this->getFieldSetting('datetime_type') === DateTimeItem::DATETIME_TYPE_DATE) {
+      // A date without time has no timezone conversion.
+      $timezone = DATETIME_STORAGE_TIMEZONE;
+    }
+    else {
+      $timezone = drupal_get_user_timezone();
+    }
+    $date->setTimeZone(timezone_open($timezone));
   }
 
   /**

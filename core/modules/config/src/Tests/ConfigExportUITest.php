@@ -2,8 +2,8 @@
 
 namespace Drupal\config\Tests;
 
-use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Archiver\Tar;
+use Drupal\Core\Serialization\Yaml;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -18,7 +18,7 @@ class ConfigExportUITest extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = array('config', 'config_test');
+  public static $modules = ['config', 'config_test'];
 
   /**
    * {@inheritdoc}
@@ -27,25 +27,25 @@ class ConfigExportUITest extends WebTestBase {
     parent::setUp();
 
     // Set up an override.
-    $settings['config']['system.maintenance']['message'] = (object) array(
+    $settings['config']['system.maintenance']['message'] = (object) [
       'value' => 'Foo',
       'required' => TRUE,
-    );
+    ];
     $this->writeSettings($settings);
 
-    $this->drupalLogin($this->drupalCreateUser(array('export configuration')));
+    $this->drupalLogin($this->drupalCreateUser(['export configuration']));
   }
 
   /**
    * Tests export of configuration.
    */
-  function testExport() {
+  public function testExport() {
     // Verify the export page with export submit button is available.
     $this->drupalGet('admin/config/development/configuration/full/export');
     $this->assertFieldById('edit-submit', t('Export'));
 
     // Submit the export form and verify response.
-    $this->drupalPostForm('admin/config/development/configuration/full/export', array(), t('Export'));
+    $this->drupalPostForm('admin/config/development/configuration/full/export', [], t('Export'));
     $this->assertResponse(200, 'User can access the download callback.');
 
     // Test if header contains file name with hostname and timestamp.
@@ -70,7 +70,7 @@ class ConfigExportUITest extends WebTestBase {
     // Prepare the list of config files from active storage, see
     // \Drupal\config\Controller\ConfigController::downloadExport().
     $storage_active = $this->container->get('config.storage');
-    $config_files = array();
+    $config_files = [];
     foreach ($storage_active->listAll() as $config_name) {
       $config_files[] = $config_name . '.yml';
     }
@@ -80,7 +80,7 @@ class ConfigExportUITest extends WebTestBase {
 
     // Ensure the test configuration override is in effect but was not exported.
     $this->assertIdentical(\Drupal::config('system.maintenance')->get('message'), 'Foo');
-    $archiver->extract(file_directory_temp(), array('system.maintenance.yml'));
+    $archiver->extract(file_directory_temp(), ['system.maintenance.yml']);
     $file_contents = file_get_contents(file_directory_temp() . '/' . 'system.maintenance.yml');
     $exported = Yaml::decode($file_contents);
     $this->assertNotIdentical($exported['message'], 'Foo');
@@ -88,6 +88,12 @@ class ConfigExportUITest extends WebTestBase {
     // Check the single export form doesn't have "form-required" elements.
     $this->drupalGet('admin/config/development/configuration/single/export');
     $this->assertNoRaw('js-form-required form-required', 'No form required fields are found.');
+
+    // Ensure the temporary file is not available to users without the
+    // permission.
+    $this->drupalLogout();
+    $this->drupalGet('system/temporary', ['query' => ['file' => 'config.tar.gz']]);
+    $this->assertResponse(403);
   }
 
 }

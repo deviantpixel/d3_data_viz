@@ -2,8 +2,14 @@
 
 namespace Drupal\node\Plugin\migrate\source\d6;
 
+use Drupal\Core\Database\Query\SelectInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Extension\ModuleHandler;
+use Drupal\Core\State\StateInterface;
+use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Row;
 use Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Drupal 6 node source from database.
@@ -34,12 +40,44 @@ class Node extends DrupalSqlBase {
   protected $fieldInfo;
 
   /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandler
+   */
+  protected $moduleHandler;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, StateInterface $state, EntityManagerInterface $entity_manager, ModuleHandler $module_handler) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration, $state, $entity_manager);
+    $this->moduleHandler = $module_handler;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $migration,
+      $container->get('state'),
+      $container->get('entity.manager'),
+      $container->get('module_handler')
+    );
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function query() {
-    // Select node in its last revision.
-    $query = $this->select('node_revisions', 'nr')
-      ->fields('n', array(
+    $query = $this->select('node_revisions', 'nr');
+    $query->innerJoin('node', 'n', static::JOIN);
+    $this->handleTranslations($query);
+
+    $query->fields('n', [
         'nid',
         'type',
         'language',
@@ -52,19 +90,25 @@ class Node extends DrupalSqlBase {
         'sticky',
         'tnid',
         'translate',
-      ))
-      ->fields('nr', array(
-        'vid',
+      ])
+      ->fields('nr', [
         'title',
         'body',
         'teaser',
         'log',
         'timestamp',
         'format',
-      ));
+        'vid',
+      ]);
     $query->addField('n', 'uid', 'node_uid');
     $query->addField('nr', 'uid', 'revision_uid');
-    $query->innerJoin('node', 'n', static::JOIN);
+
+    // If the content_translation module is enabled, get the source langcode
+    // to fill the content_translation_source field.
+    if ($this->moduleHandler->moduleExists('content_translation')) {
+      $query->leftJoin('node', 'nt', 'n.tnid = nt.nid');
+      $query->addField('nt', 'language', 'source_langcode');
+    }
 
     if (isset($this->configuration['node_type'])) {
       $query->condition('n.type', $this->configuration['node_type']);
@@ -85,7 +129,7 @@ class Node extends DrupalSqlBase {
    * {@inheritdoc}
    */
   public function fields() {
-    $fields = array(
+    $fields = [
       'nid' => $this->t('Node ID'),
       'type' => $this->t('Type'),
       'title' => $this->t('Title'),
@@ -103,7 +147,7 @@ class Node extends DrupalSqlBase {
       'language' => $this->t('Language (fr, en, ...)'),
       'tnid' => $this->t('The translation set id for this node'),
       'timestamp' => $this->t('The timestamp the latest revision of this node was created.'),
-    );
+    ];
     return $fields;
   }
 
@@ -121,6 +165,11 @@ class Node extends DrupalSqlBase {
       foreach ($this->getFieldValues($row) as $field => $values) {
         $row->setSourceProperty($field, $values);
       }
+    }
+
+    // Make sure we always have a translation set.
+    if ($row->getSourceProperty('tnid') == 0) {
+      $row->setSourceProperty('tnid', $row->getSourceProperty('nid'));
     }
 
     return parent::prepareRow($row);
@@ -249,6 +298,24 @@ class Node extends DrupalSqlBase {
     $ids['nid']['type'] = 'integer';
     $ids['nid']['alias'] = 'n';
     return $ids;
+  }
+
+  /**
+   * Adapt our query for translations.
+   *
+   * @param \Drupal\Core\Database\Query\SelectInterface $query
+   *   The generated query.
+   */
+  protected function handleTranslations(SelectInterface $query) {
+    // Check whether or not we want translations.
+    if (empty($this->configuration['translations'])) {
+      // No translations: Yield untranslated nodes, or default translations.
+      $query->where('n.tnid = 0 OR n.tnid = n.nid');
+    }
+    else {
+      // Translations: Yield only non-default translations.
+      $query->where('n.tnid <> 0 AND n.tnid <> n.nid');
+    }
   }
 
 }

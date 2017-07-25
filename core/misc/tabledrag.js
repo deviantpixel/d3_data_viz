@@ -498,6 +498,9 @@
 
       var keyChange = false;
       var groupHeight;
+
+      /* eslint-disable no-fallthrough */
+
       switch (event.keyCode) {
         // Left arrow.
         case 37:
@@ -601,6 +604,8 @@
           break;
       }
 
+      /* eslint-enable no-fallthrough */
+
       if (self.rowObject && self.rowObject.changed === true) {
         $(item).addClass('drag');
         if (self.oldRowElement) {
@@ -624,6 +629,9 @@
     // other browsers need to return false on keypress.
     // http://www.quirksmode.org/js/keys.html
     handle.on('keypress', function (event) {
+
+      /* eslint-disable no-fallthrough */
+
       switch (event.keyCode) {
         // Left arrow.
         case 37:
@@ -635,6 +643,9 @@
         case 40:
           return false;
       }
+
+      /* eslint-enable no-fallthrough */
+
     });
   };
 
@@ -1151,10 +1162,10 @@
     // :even and :odd are reversed because jQuery counts from 0 and
     // we count from 1, so we're out of sync.
     // Match immediate children of the parent element to allow nesting.
-    $(this.table).find('> tbody > tr.draggable:visible, > tr.draggable:visible')
-      .removeClass('odd even')
-      .filter(':odd').addClass('even').end()
-      .filter(':even').addClass('odd');
+    $(this.table).find('> tbody > tr.draggable, > tr.draggable')
+      .filter(':visible')
+      .filter(':odd').removeClass('odd').addClass('even').end()
+      .filter(':even').removeClass('even').addClass('odd');
   };
 
   /**

@@ -103,7 +103,7 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
    */
   protected function prepareArguments(array $arguments) {
     foreach ($this->arguments() as $id => $argument) {
-      $argument += array('required' => TRUE);
+      $argument += ['required' => TRUE];
       // Check if the argument is required and, if so, has been provided.
       if ($argument['required']) {
         if (!array_key_exists($id, $arguments)) {
@@ -123,7 +123,7 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
 
         // Use the default value if the argument is not passed in.
         if (!array_key_exists($id, $arguments)) {
-         $arguments[$id] = $argument['default'];
+          $arguments[$id] = $argument['default'];
         }
       }
     }

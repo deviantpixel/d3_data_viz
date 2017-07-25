@@ -5,7 +5,7 @@
  * Contains \Drupal\Tests\Component\Utility\ArgumentsResolverTest.
  */
 
-namespace Drupal\Tests\Component\Utility {
+namespace Drupal\Tests\Component\Utility;
 
 use Drupal\Component\Utility\ArgumentsResolver;
 use Drupal\Tests\UnitTestCase;
@@ -121,9 +121,6 @@ class ArgumentsResolverTest extends UnitTestCase {
    * Tests getArgument() with a wildcard parameter with no typehint.
    *
    * Without the typehint, the wildcard object will not be passed to the callable.
-   *
-   * @expectedException \RuntimeException
-   * @expectedExceptionMessage requires a value for the "$route" argument.
    */
   public function testGetWildcardArgumentNoTypehint() {
     $a = $this->getMock('\Drupal\Tests\Component\Utility\TestInterface1');
@@ -131,8 +128,8 @@ class ArgumentsResolverTest extends UnitTestCase {
     $resolver = new ArgumentsResolver([], [], $wildcards);
 
     $callable = function($route) {};
-    $arguments = $resolver->getArguments($callable);
-    $this->assertNull($arguments);
+    $this->setExpectedException(\RuntimeException::class, 'requires a value for the "$route" argument.');
+    $resolver->getArguments($callable);
   }
 
   /**
@@ -152,9 +149,6 @@ class ArgumentsResolverTest extends UnitTestCase {
 
   /**
    * Tests handleUnresolvedArgument() for a scalar argument.
-   *
-   * @expectedException \RuntimeException
-   * @expectedExceptionMessage requires a value for the "$foo" argument.
    */
   public function testHandleNotUpcastedArgument() {
     $objects = ['foo' => 'bar'];
@@ -162,22 +156,19 @@ class ArgumentsResolverTest extends UnitTestCase {
     $resolver = new ArgumentsResolver($scalars, $objects, []);
 
     $callable = function(\stdClass $foo) {};
-    $arguments = $resolver->getArguments($callable);
-    $this->assertNull($arguments);
+    $this->setExpectedException(\RuntimeException::class, 'requires a value for the "$foo" argument.');
+    $resolver->getArguments($callable);
   }
 
   /**
    * Tests handleUnresolvedArgument() for missing arguments.
    *
-   * @expectedException \RuntimeException
-   * @expectedExceptionMessage requires a value for the "$foo" argument.
-   *
    * @dataProvider providerTestHandleUnresolvedArgument
    */
   public function testHandleUnresolvedArgument($callable) {
     $resolver = new ArgumentsResolver([], [], []);
-    $arguments = $resolver->getArguments($callable);
-    $this->assertNull($arguments);
+    $this->setExpectedException(\RuntimeException::class, 'requires a value for the "$foo" argument.');
+    $resolver->getArguments($callable);
   }
 
   /**
@@ -187,7 +178,7 @@ class ArgumentsResolverTest extends UnitTestCase {
     $data = [];
     $data[] = [function($foo) {}];
     $data[] = [[new TestClass(), 'access']];
-    $data[] = ['test_access_arguments_resolver_access'];
+    $data[] = ['Drupal\Tests\Component\Utility\test_access_arguments_resolver_access'];
     return $data;
   }
 
@@ -214,9 +205,5 @@ interface TestInterface1 {
 interface TestInterface2 {
 }
 
-}
-
-namespace {
-  function test_access_arguments_resolver_access($foo) {
-  }
+function test_access_arguments_resolver_access($foo) {
 }
